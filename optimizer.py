@@ -6,14 +6,16 @@ def optimize_team(df, budget=1000):
     """Selects optimal 15-man squad, starting XI, and Captain using PuLP."""
     players = df['id'].tolist()
 
-    # Dictionary lookups for fast iteration
+    # Pre-build lookup dictionaries for fast access
     xp_dict = dict(zip(df['id'], df['custom_xP']))
     cost_dict = dict(zip(df['id'], df['now_cost']))
 
-    # Decision Variables (using positional args: name, indices, lowBound, upBound, cat)
-    squad = pulp.LpVariable.dicts("squad", players, 0, 1, pulp.LpBinary)
-    lineup = pulp.LpVariable.dicts("lineup", players, 0, 1, pulp.LpBinary)
-    captain = pulp.LpVariable.dicts("captain", players, 0, 1, pulp.LpBinary)
+    # Decision Variables built via dictionary comprehensions with cat='Binary'
+    squad = {i: pulp.LpVariable(f"squad_{i}", cat='Binary') for i in players}
+    lineup = {i: pulp.LpVariable(f"lineup_{i}", cat='Binary') for i in players}
+    captain = {
+        i: pulp.LpVariable(f"captain_{i}", cat='Binary') for i in players
+    }
 
     # Objective: Maximize (Starting XI xP + Captain xP)
     prob = pulp.LpProblem("FPL_Optimizer", pulp.LpMaximize)
@@ -61,7 +63,7 @@ def optimize_team(df, budget=1000):
     # Solve
     prob.solve(pulp.PULP_CBC_CMD(msg=False))
 
-    # Extract results (> 0.5 handles solver floating-point precision)
+    # Extract results (> 0.5 handles floating-point output precision from solvers)
     squad_ids = [
         i
         for i in players
