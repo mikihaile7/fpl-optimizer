@@ -5,7 +5,7 @@ import optimizer
 
 st.set_page_config(page_title="FPL xP Optimizer", layout="wide")
 
-st.title("🦉 6IXSIDE FPL 🦉")
+st.title("🦉 FPL OPTIMIZER 🦉")
 st.markdown("🦉 WRITTEN BY 6IXSIDE MIKE 🦉")
 
 # Cache data loading so UI slider updates don't trigger API calls repeatedly
