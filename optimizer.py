@@ -8,9 +8,10 @@ def optimize_team(df, budget=1000):
     players = df['id'].tolist()
     
     # Decision Variables
-    squad = pulp.LpVariable.dicts("squad", players, 0, 1, pulp.LpInteger)
-    lineup = pulp.LpVariable.dicts("lineup", players, 0, 1, pulp.LpInteger)
-    captain = pulp.LpVariable.dicts("captain", players, 0, 1, pulp.LpInteger)
+# Decision Variables
+squad = pulp.LpVariable.dicts("squad", players, lowBound=0, upBound=1, cat=pulp.LpInteger)
+lineup = pulp.LpVariable.dicts("lineup", players, lowBound=0, upBound=1, cat=pulp.LpInteger)
+captain = pulp.LpVariable.dicts("captain", players, lowBound=0, upBound=1, cat=pulp.LpInteger)
     
     # Objective: Maximize (Starting XI xP + Captain xP)
     prob = pulp.LpProblem("FPL_Optimizer", pulp.LpMaximize)
