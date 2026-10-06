@@ -6,22 +6,35 @@ def optimize_team(df, budget=1000):
     """Selects optimal 15-man squad, starting XI, and Captain using PuLP."""
     players = df['id'].tolist()
 
-    # Decision Variables (using pulp.LpBinary for binary 0/1 choices)
-    squad = pulp.LpVariable.dicts("squad", players, cat=pulp.LpBinary)
-    lineup = pulp.LpVariable.dicts("lineup", players, cat=pulp.LpBinary)
-    captain = pulp.LpVariable.dicts("captain", players, cat=pulp.LpBinary)
+    # Fast dictionary lookups for player metrics
+    xp_dict = dict(zip(df['id'], df['custom_xP']))
+    cost_dict = dict(zip(df['id'], df['now_cost']))
+
+    # Decision Variables built via direct dictionary comprehensions
+    squad = {
+        i: pulp.LpVariable(
+            f"squad_{i}", lowBound=0, upBound=1, cat=pulp.LpBinary
+        )
+        for i in players
+    }
+    lineup = {
+        i: pulp.LpVariable(
+            f"lineup_{i}", lowBound=0, upBound=1, cat=pulp.LpBinary
+        )
+        for i in players
+    }
+    captain = {
+        i: pulp.LpVariable(
+            f"captain_{i}", lowBound=0, upBound=1, cat=pulp.LpBinary
+        )
+        for i in players
+    }
 
     # Objective: Maximize (Starting XI xP + Captain xP)
     prob = pulp.LpProblem("FPL_Optimizer", pulp.LpMaximize)
     prob += pulp.lpSum(
-        [
-            lineup[i] * df.loc[df['id'] == i, 'custom_xP'].values[0]
-            for i in players
-        ]
-        + [
-            captain[i] * df.loc[df['id'] == i, 'custom_xP'].values[0]
-            for i in players
-        ]
+        [lineup[i] * xp_dict[i] for i in players]
+        + [captain[i] * xp_dict[i] for i in players]
     )
 
     # Constraint: Logic linkages
@@ -30,13 +43,7 @@ def optimize_team(df, budget=1000):
         prob += captain[i] <= lineup[i]
 
     # Constraint: Budget
-    prob += (
-        pulp.lpSum([
-            squad[i] * df.loc[df['id'] == i, 'now_cost'].values[0]
-            for i in players
-        ])
-        <= budget
-    )
+    prob += pulp.lpSum([squad[i] * cost_dict[i] for i in players]) <= budget
 
     # Constraint: Total Players
     prob += pulp.lpSum([squad[i] for i in players]) == 15
@@ -69,7 +76,7 @@ def optimize_team(df, budget=1000):
     # Solve
     prob.solve(pulp.PULP_CBC_CMD(msg=False))
 
-    # Extract results (using > 0.5 to safely handle solver floating-point outputs like 0.99999)
+    # Extract results safely (> 0.5 handles floating-point solver output precision)
     squad_ids = [
         i
         for i in players
@@ -80,11 +87,12 @@ def optimize_team(df, budget=1000):
         for i in players
         if lineup[i].varValue is not None and lineup[i].varValue > 0.5
     ]
-    captain_id = [
+    captain_ids = [
         i
         for i in players
         if captain[i].varValue is not None and captain[i].varValue > 0.5
-    ][0]
+    ]
+    captain_id = captain_ids[0] if captain_ids else None
 
     res_df = df[df['id'].isin(squad_ids)].copy()
     res_df['is_starter'] = res_df['id'].apply(
